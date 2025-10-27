@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>잠재적 편견 테스트 · 도덕 수업</title>
+  <meta name="description" content="중학교 도덕 수업용 성찰형 편견 테스트 (30문항)" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+  <!-- Pretendard for good Korean typography -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <!-- Pico.css minimal framework -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    :root { --pico-font-family: Pretendard, system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, Noto Sans KR, "Helvetica Neue", Arial, "Liberation Sans", "PingFang SC", "Hiragino Sans", sans-serif; }
+    body { background:#f7f7f8; }
+    header.hero { padding: 2rem 0 1rem; background: linear-gradient(180deg, #fff, #f7f7f8); border-bottom: 1px solid #eee; }
+    .brand { display:flex; align-items:center; gap:.7rem; }
+    .brand .logo { font-size:1.4rem; }
+    .badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .6rem; border-radius:999px; border:1px solid #dcdcdc; font-size:.85rem; }
+    .muted { color:#666; }
+    .cards { display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    article.card { padding:1rem; border-radius:1rem; border:1px solid #e6e6e6; background:#fff; }
+    .progress { height:.5rem; border-radius:999px; background:#eee; overflow:hidden; }
+    .progress > span { display:block; height:100%; background:#111; }
+    label.option { border:1px solid #e6e6e6; padding:.6rem .75rem; border-radius:.7rem; display:flex; align-items:center; gap:.5rem; cursor:pointer; }
+    label.option[aria-checked="true"] { border-color:#111; background:#1111110d; }
+    .pill { border:1px solid #e6e6e6; border-radius:999px; padding:.2rem .6rem; font-size:.8rem; color:#666; }
+    footer { color:#777; }
+    .lock { opacity:.65; user-select:none; }
+  </style>
+</head>
+<body>
+  <header class="container hero">
+    <nav>
+      <ul>
+        <li class="brand"><span class="logo">🧠</span><strong>잠재적 편견 테스트</strong><span class="pill">확장형 30문항</span></li>
+      </ul>
+      <ul>
+        <li><button id="printBtn" class="secondary outline" aria-disabled="true" title="모든 문항 응답 후 인쇄 가능" disabled>인쇄</button></li>
+        <li><button id="resetBtn" class="secondary outline">초기화</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="grid">
+      <article class="card">
+        <h5>검사의 목적</h5>
+        <p class="muted">정답/오답을 가르는 진단이 아니라, 무심코 드러나는 편견을 <b>자각→성찰→행동</b>으로 잇는 성찰형 활동입니다.</p>
+        <div style="margin-top:.75rem;">
+          <small class="muted">진행률 <span id="progressLabel">0%</span></small>
+          <div class="progress"><span id="progressBar" style="width:0%;"></span></div>
+          <div id="scoreBadge" style="margin-top:.6rem;" class="muted">모든 문항 응답 후 결과가 공개됩니다.</div>
+          <button id="revealBtn" class="secondary outline" style="float:right; margin-top:.2rem;">결과 보기</button>
+        </div>
+      </article>
+      <article class="card" id="chartCard">
+        <h5>영역별 점수(%)</h5>
+        <div id="chartSlot" style="height:270px; display:flex; align-items:center; justify-content:center;" class="muted">모든 문항을 응답하면 그래프가 나타납니다.</div>
+        <small class="muted">* 각 영역 최대점수 15점(3문항×5점) → 백분율로 표시</small>
+      </article>
+    </section>
+
+    <section id="questions"></section>
+    <section id="summary"></section>
+  </main>
+
+  <footer class="container" style="padding:2rem 0 3rem;">
+    <small>© 2025 도덕 수업용 잠재적 편견 테스트 · 교실 내 배포/수정 자유</small>
+  </footer>
+
+  <!-- React/ReactDOM (jsDelivr) -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Recharts (optional) -->
+  <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
+
+  <script>
+    const QUESTIONS = [
+      { id: 1, text: "나는 외모나 옷차림이 깔끔하지 않은 사람을 보면 신뢰가 덜 간다.", domain: "외모 편견" },
+      { id: 2, text: "피부나 체형이 사회 기준과 다르면 관리가 부족하다고 느낀다.", domain: "외모 편견" },
+      { id: 3, text: "첫인상이 좋지 않으면 그 사람의 성격도 별로일 것 같다.", domain: "외모 편견" },
+      { id: 4, text: "특정 지역 사람들은 성격이 급하거나 거칠다고 생각한다.", domain: "출신 지역 편견" },
+      { id: 5, text: "내가 사는 지역이 다른 지역보다 더 살기 좋다고 느낀다.", domain: "출신 지역 편견" },
+      { id: 6, text: "방언을 쓰는 사람을 보면 촌스럽다고 느낀 적이 있다.", domain: "출신 지역 편견" },
+      { id: 7, text: "육체노동은 공부를 덜 한 사람들이 하는 일이라고 생각한다.", domain: "직업 편견" },
+      { id: 8, text: "유명 직업을 가진 사람은 인격적으로도 뛰어날 것이라 생각한다.", domain: "직업 편견" },
+      { id: 9, text: "알바나 단순 노동을 하는 사람에게 무의식적으로 반말을 한 적이 있다.", domain: "직업 편견" },
+      { id: 10, text: "남자는 여자보다 감정 표현을 덜 해야 한다고 생각한다.", domain: "성별 편견" },
+      { id: 11, text: "여자는 남자보다 감성적이고, 리더십에는 약하다고 느낀다.", domain: "성별 편견" },
+      { id: 12, text: "집안일은 여자 쪽이 더 잘해야 한다고 생각한 적이 있다.", domain: "성별 편견" },
+      { id: 13, text: "식사할 때 손으로 밥을 먹는 것은 위생적이지 않다고 느낀다.", domain: "문화 편견" },
+      { id: 14, text: "내 나라 문화가 다른 나라 문화보다 예의 바르다고 생각한다.", domain: "문화 편견" },
+      { id: 15, text: "낯선 복장이나 종교적 의상을 보면 어색하거나 불편하다.", domain: "문화 편견" },
+      { id: 16, text: "피부색이 어두운 사람을 보면 본능적으로 경계심이 든다.", domain: "인종 편견" },
+      { id: 17, text: "백인이나 서양인은 더 세련되었다는 생각이 든 적이 있다.", domain: "인종 편견" },
+      { id: 18, text: "다른 인종의 사람과 짝을 이루면 살짝 부담스럽다.", domain: "인종 편견" },
+      { id: 19, text: "나와 다른 종교를 믿는 사람의 신앙 방식이 이상하게 느껴진다.", domain: "종교 편견" },
+      { id: 20, text: "종교가 있는 사람은 비이성적일 것 같다고 생각한다.", domain: "종교 편견" },
+      { id: 21, text: "특정 종교의 상징물(십자가, 히잡 등)을 보면 불편하게 느껴진다.", domain: "종교 편견" },
+      { id: 22, text: "장애가 있는 친구와 함께 활동하면 불편할 것 같다.", domain: "장애 편견" },
+      { id: 23, text: "장애가 있으면 대부분 도움을 받아야만 한다고 생각한다.", domain: "장애 편견" },
+      { id: 24, text: "장애 학생이 수업 참여 시 방해될까 걱정한 적이 있다.", domain: "장애 편견" },
+      { id: 25, text: "경제적으로 어려운 사람은 노력하지 않아서 그런 것이라고 생각한다.", domain: "경제 편견" },
+      { id: 26, text: "브랜드 옷을 입은 사람은 부유하고 성취한 사람 같다고 느낀다.", domain: "경제 편견" },
+      { id: 27, text: "가난한 사람을 보면 불쌍하지만 어느 정도는 자기 탓이라 생각한다.", domain: "경제 편견" },
+      { id: 28, text: "나와 비슷한 배경을 가진 사람과 있을 때 가장 편안하다.", domain: "내집단 중심성" },
+      { id: 29, text: "새로운 친구보다는 기존 친구들과 어울리는 게 더 좋다.", domain: "내집단 중심성" },
+      { id: 30, text: "나와 생각이 너무 다른 사람과 대화하면 피곤하다.", domain: "내집단 중심성" }
+    ];
+
+    const LIKERT = [
+      { value: 1, label: "① 전혀 그렇지 않다" },
+      { value: 2, label: "② 그렇지 않다" },
+      { value: 3, label: "③ 보통이다" },
+      { value: 4, label: "④ 그렇다" },
+      { value: 5, label: "⑤ 매우 그렇다" }
+    ];
+
+    const suggestionMap = {
+      "외모 편견": "외형 대신 구체적 행동 근거로 칭찬하기(하루 1회).",
+      "출신 지역 편견": "지역 고정관념을 데이터/사례로 반박해보기.",
+      "직업 편견": "직업=임금이 아니라 '사회적 기여' 관점으로 보기.",
+      "성별 편견": "감정 어휘 5개를 오늘 대화에서 사용해보기.",
+      "문화 편견": "낯선 예절의 맥락을 찾아 장점 1개 기록하기.",
+      "인종 편견": "낯섦을 호기심 질문 1개로 바꾸기.",
+      "종교 편견": "서로 다른 종교의 공통 가치 1개 적기.",
+      "장애 편견": "'불편'→'무엇이 필요할까?'로 전환, 합리적 배려 체크.",
+      "경제 편견": "빈곤의 구조적 요인/정책 1개 조사하기.",
+      "내집단 중심성": "의도적으로 낯선 짝과 인터뷰 후 공통점 3가지 찾기."
+    ];
+  </script>
+
+  <script>
+    (function(){
+      const React = window.React, ReactDOM = window.ReactDOM, Recharts = window.Recharts || {};
+      const { useState, useMemo, useEffect } = React;
+
+      function ScoreBadge({ score, max }){
+        const pct = Math.round((score / max) * 100);
+        let tier = "열린 마음형";
+        if (pct >= 60) tier = "잠재적 편견 주의형";
+        else if (pct >= 35) tier = "성찰 중간형";
+        return React.createElement("span", { className: "badge" }, tier, React.createElement("span", { className:"muted" }, `(${score}/${max}, ${pct}%)`));
+      }
+
+      function App(){
+        const MAX = QUESTIONS.length * 5;
+        const isBrowser = typeof window !== 'undefined';
+        const [answers, setAnswers] = useState(() => {
+          if (!isBrowser) return {};
+          try { return JSON.parse(localStorage.getItem('bias-answers-pretty-v1')) || {}; } catch { return {}; }
+        });
+        const [tried, setTried] = useState(false);
+
+        useEffect(() => { try { localStorage.setItem('bias-answers-pretty-v1', JSON.stringify(answers)); } catch {} }, [answers]);
+
+        const total = useMemo(() => QUESTIONS.reduce((s,q)=> s + (answers[q.id] || 0), 0), [answers]);
+        const answered = Object.keys(answers).length;
+        const progressPct = Math.round((answered / QUESTIONS.length) * 100);
+        const allDone = answered === QUESTIONS.length;
+
+        // Header buttons
+        useEffect(() => {
+          const printBtn = document.getElementById('printBtn');
+          if (printBtn){
+            printBtn.disabled = !allDone;
+            printBtn.setAttribute('aria-disabled', String(!allDone));
+            printBtn.onclick = () => allDone && window.print();
+          }
+          const resetBtn = document.getElementById('resetBtn');
+          if (resetBtn){
+            resetBtn.onclick = () => {
+              if (confirm('모든 응답을 초기화할까요?')) {
+                setAnswers({});
+                try { localStorage.removeItem('bias-answers-pretty-v1'); } catch {}
+                window.scrollTo({ top:0, behavior:'smooth' });
+              }
+            };
+          }
+          const revealBtn = document.getElementById('revealBtn');
+          if (revealBtn){
+            revealBtn.onclick = () => {
+              setTried(true);
+              if (!allDone){
+                const first = QUESTIONS.find(q => !answers[q.id]);
+                const el = document.querySelector(`[data-qid="${first.id}"]`);
+                if (el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+              }
+            };
+          }
+        }, [answers]);
+
+        // Score badge render
+        useEffect(() => {
+          const label = document.getElementById('progressLabel');
+          const bar = document.getElementById('progressBar');
+          const badge = document.getElementById('scoreBadge');
+          if (label) label.textContent = `${progressPct}%`;
+          if (bar) bar.style.width = `${progressPct}%`;
+          const root = ReactDOM.createRoot(badge);
+          root.render(allDone ? React.createElement(ScoreBadge, { score: total, max: MAX }) : React.createElement('span', { className:'muted' }, '모든 문항 응답 후 결과가 공개됩니다.'));
+        }, [progressPct, total]);
+
+        // Chart render
+        useEffect(() => {
+          const slot = document.getElementById('chartSlot');
+          if (!slot) return;
+          if (!allDone){
+            slot.textContent = "모든 문항을 응답하면 그래프가 나타납니다.";
+            return;
+          }
+          // compute domain stats
+          const map = new Map();
+          for (const q of QUESTIONS){
+            const prev = map.get(q.domain) || { sum:0, cnt:0 };
+            map.set(q.domain, { sum: prev.sum + (answers[q.id] || 0), cnt: prev.cnt + 1 });
+          }
+          const data = Array.from(map.entries()).map(([domain, {sum, cnt}]) => {
+            const max = cnt * 5, pct = Math.round((sum / max) * 100), avg = cnt ? sum/cnt : 0;
+            return { domain, pct, sum, avg: Number(avg.toFixed(1)), max };
+          }).sort((a,b)=> b.pct - a.pct);
+
+          if (!window.Recharts || !Recharts.BarChart){
+            slot.textContent = "차트 라이브러리를 불러오지 못했습니다. (결과 요약은 아래에서 확인하세요)";
+            renderSummary(data);
+            return;
+          }
+          // mount chart
+          slot.innerHTML = "";
+          const chartRoot = ReactDOM.createRoot(slot);
+          const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } = Recharts;
+          chartRoot.render(
+            React.createElement("div", { style:{height:'100%', width:'100%'} },
+              React.createElement(ResponsiveContainer, { width:"100%", height:"100%" },
+                React.createElement(BarChart, { data, margin:{ top: 10, right: 10, left: 0, bottom: 0 } },
+                  React.createElement(XAxis, { dataKey:"domain", tick:{ fontSize:12 }, interval:0, height:50 }),
+                  React.createElement(YAxis, { domain:[0,100], tick:{ fontSize:12 }, width:28 }),
+                  React.createElement(Tooltip, { formatter:(v)=>[v+'%','비율'] }),
+                  React.createElement(Bar, { dataKey:"pct", radius:[6,6,0,0] },
+                    React.createElement(LabelList, { dataKey:"pct", position:"top", formatter:(v)=> v+'%' })
+                  )
+                )
+              )
+            )
+          );
+          renderSummary(data);
+        }, [answered]);
+
+        // Questions render
+        useEffect(() => {
+          const mount = document.getElementById('questions');
+          if (!mount) return;
+          mount.innerHTML = "";
+          const grid = document.createElement('div');
+          grid.className = "grid";
+          mount.appendChild(grid);
+
+          QUESTIONS.forEach(q => {
+            const card = document.createElement('article');
+            card.className = "card";
+            card.setAttribute('data-qid', q.id);
+            card.innerHTML = `<header><strong>${q.id}. ${q.text}</strong><span class="pill">${q.domain}</span></header>`;
+            const opts = document.createElement('div');
+            opts.style.display = 'grid';
+            opts.style.gridTemplateColumns = 'repeat(auto-fit, minmax(220px, 1fr))';
+            opts.style.gap = '.5rem';
+            LIKERT.forEach(opt => {
+              const id = `q${q.id}_${opt.value}`;
+              const label = document.createElement('label');
+              label.className = "option";
+              label.setAttribute('for', id);
+              label.setAttribute('aria-checked', String(answers[q.id] === opt.value));
+              const input = document.createElement('input');
+              input.type = 'radio';
+              input.name = `q${q.id}`;
+              input.id = id;
+              input.value = String(opt.value);
+              input.checked = answers[q.id] === opt.value;
+              input.addEventListener('change', () => {
+                answers[q.id] = opt.value;
+                setAnswers({...answers});
+              });
+              const span = document.createElement('span');
+              span.textContent = opt.label;
+              label.appendChild(input);
+              label.appendChild(span);
+              opts.appendChild(label);
+            });
+            card.appendChild(opts);
+            grid.appendChild(card);
+          });
+        }, [answers]);
+
+        function renderSummary(data){
+          const mount = document.getElementById('summary');
+          if (!mount) return;
+          mount.innerHTML = "";
+          if (!data){
+            // not finished
+            const card = document.createElement('article');
+            card.className = "card muted";
+            card.textContent = "결과는 모든 문항에 응답한 뒤 확인할 수 있습니다.";
+            mount.appendChild(card);
+            return;
+          }
+          const wrap = document.createElement('section');
+          wrap.className = "cards";
+          const left = document.createElement('article');
+          left.className = "card";
+          left.innerHTML = "<h5>영역별 요약</h5>";
+          const list = document.createElement('ul');
+          list.style.listStyle = 'none';
+          list.style.paddingLeft = '0';
+          data.forEach(d => {
+            const li = document.createElement('li');
+            li.style.display = 'flex'; li.style.justifyContent='space-between'; li.style.gap='1rem';
+            li.innerHTML = `<span>${d.domain}</span><span class="muted">${d.sum}/${d.max}점 (${d.pct}%) · 평균 ${d.avg}</span>`;
+            list.appendChild(li);
+          });
+          left.appendChild(list);
+          wrap.appendChild(left);
+
+          const right = document.createElement('article');
+          right.className = "card";
+          right.innerHTML = "<h5>바로 실천할 작은 행동</h5>";
+          const ul = document.createElement('ul');
+          ul.style.listStyle='none'; ul.style.paddingLeft='0';
+          data.slice(0,3).forEach(d => {
+            const li = document.createElement('li');
+            li.textContent = `• ${d.domain}: ${suggestionMap[d.domain] || ''}`;
+            ul.appendChild(li);
+          });
+          right.appendChild(ul);
+          const tip = document.createElement('small');
+          tip.className = "muted";
+          tip.textContent = "* 상위 3개 영역을 기준으로 자동 제안됩니다.";
+          right.appendChild(tip);
+          wrap.appendChild(right);
+          mount.appendChild(wrap);
+        }
+
+        return null;
+      }
+
+      const root = ReactDOM.createRoot(document.createElement('div'));
+      // We won't render React root here; we manage DOM manually with effects above to keep Pico layout stable.
+      // But we need to call App once to attach all effects.
+      ReactDOM.createRoot(document.createElement('div'));
+      App();
+    })();
+  </script>
+</body>
+</html>
